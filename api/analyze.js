@@ -61,9 +61,9 @@ async function getFinancialData() {
     console.log('✅ Site encontrado:', siteResponse.data.displayName);
     const siteId = siteResponse.data.id;
 
-    console.log('📁 Buscando arquivo Excel...');
+    console.log('📁 Buscando arquivo Excel por ID...');
     const rangeResponse = await axios.get(
-      `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/root:/Documentos%20Compartilhados/Mario%20Fontana/Claude/dados-financeiros.xlsx:/workbook/worksheets/f_FluxoDeCaixaProjetado/usedRange`,
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/01RQGAZ7JWK6JLH25XVNEI4TCZETB3QZOY/workbook/worksheets/f_FluxoDeCaixaProjetado/usedRange`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     console.log('✅ Arquivo Excel lido com sucesso');
