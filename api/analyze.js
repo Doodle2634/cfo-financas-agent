@@ -63,7 +63,7 @@ async function getFinancialData() {
 
     console.log('📁 Buscando arquivo Excel...');
     const rangeResponse = await axios.get(
-      `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/Documentos Compartilhados/Mario Fontana/Claude/dados-financeiros.xlsx:/workbook/worksheets/f_FluxoDeCaixaProjetado/usedRange`,
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root::/dados-financeiros.xlsx:/workbook/worksheets/f_FluxoDeCaixaProjetado/usedRange`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     console.log('✅ Arquivo Excel lido com sucesso');
