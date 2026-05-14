@@ -1,0 +1,19 @@
+{
+  "name": "cfo-financas-agent",
+  "version": "1.0.0",
+  "description": "CFO Finanças Agent - C&S Projetos e Mercado - SharePoint Integration",
+  "main": "api/agent.js",
+  "scripts": {
+    "dev": "node api/agent.js",
+    "build": "echo 'Build complete'"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.3",
+    "axios": "^1.6.7",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": "18.x"
+  }
+}
