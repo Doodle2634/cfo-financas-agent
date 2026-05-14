@@ -2,9 +2,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const axios = require('axios');
 
 const SYSTEM_PROMPT = `Você é o agente CFO Finanças da C&S Projetos e Mercado. Fundada em 1975, ISO 9001 Bureau Veritas.
-
 Propósito: "Gerar valor fazendo o bem, marcando história por onde passamos."
-
 ESTRUTURA DE ANÁLISE:
 1. Leitura do período
 2. Geração de valor / destruição
@@ -13,7 +11,6 @@ ESTRUTURA DE ANÁLISE:
 5. Variações e números
 6. Recomendações acionáveis
 7. Perguntas para o board
-
 Seja transparente mesmo com más notícias. Conecte resultados à governança e perenidade da empresa.`;
 
 async function getAccessToken() {
@@ -54,7 +51,6 @@ module.exports = async (req, res) => {
   }
 
   const sharePointData = await getSharePointData();
-
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const fullPrompt = `
@@ -71,7 +67,7 @@ ${context ? `CONTEXTO ADICIONAL:\n${context}` : ''}
 `;
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 2000,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: fullPrompt }]
@@ -84,7 +80,7 @@ ${context ? `CONTEXTO ADICIONAL:\n${context}` : ''}
     response,
     metadata: {
       timestamp: new Date().toISOString(),
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251001',
       tokens_used: message.usage.input_tokens + message.usage.output_tokens,
       sharepoint_connected: sharePointData.connected
     }
