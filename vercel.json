@@ -1,12 +1,5 @@
 {
   "version": 2,
-  "buildCommand": null,
-  "outputDirectory": null,
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs24.x"
-    }
-  },
   "routes": [
     {
       "src": "/api/(.*)",
