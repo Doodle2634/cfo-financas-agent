@@ -4,27 +4,12 @@
     {
       "src": "api/*.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/index.html"
     }
-  ],
-  "env": {
-    "ANTHROPIC_API_KEY": "@ANTHROPIC_API_KEY",
-    "AZURE_TENANT_ID": "@AZURE_TENANT_ID",
-    "AZURE_CLIENT_ID": "@AZURE_CLIENT_ID",
-    "AZURE_CLIENT_SECRET": "@AZURE_CLIENT_SECRET",
-    "SHAREPOINT_SITE": "@SHAREPOINT_SITE"
-  }
+  ]
 }
