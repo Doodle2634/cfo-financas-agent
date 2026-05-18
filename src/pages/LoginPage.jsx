@@ -94,7 +94,7 @@ export default function LoginPage() {
             <h1 style={{
               fontSize: '26px',
               fontWeight: '700',
-              color: '#1a1f6e',
+              color: '#1e2d5e',
               marginBottom: '8px',
               lineHeight: '1.3',
               letterSpacing: '-0.3px'
@@ -125,7 +125,7 @@ export default function LoginPage() {
                   display: 'block',
                   fontSize: '13px',
                   fontWeight: '600',
-                  color: '#1a1f6e',
+                  color: '#1e2d5e',
                   marginBottom: '6px',
                   letterSpacing: '0.3px'
                 }}>
@@ -149,9 +149,9 @@ export default function LoginPage() {
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#1a1f6e';
+                    e.target.style.borderColor = '#1e2d5e';
                     e.target.style.backgroundColor = '#ffffff';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(26,31,110,0.08)';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(30,45,94,0.08)';
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = '#d4d4cc';
@@ -172,7 +172,7 @@ export default function LoginPage() {
                   <label style={{
                     fontSize: '13px',
                     fontWeight: '600',
-                    color: '#1a1f6e',
+                    color: '#1e2d5e',
                     letterSpacing: '0.3px'
                   }}>
                     Senha
@@ -203,9 +203,9 @@ export default function LoginPage() {
                     transition: 'all 0.2s ease'
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#1a1f6e';
+                    e.target.style.borderColor = '#1e2d5e';
                     e.target.style.backgroundColor = '#ffffff';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(26,31,110,0.08)';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(30,45,94,0.08)';
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = '#d4d4cc';
@@ -243,23 +243,23 @@ export default function LoginPage() {
                   fontSize: '15px',
                   fontWeight: '600',
                   color: 'white',
-                  background: loading ? '#9ca3af' : 'linear-gradient(135deg, #1a1f6e 0%, #2d3580 100%)',
+                  background: loading ? '#9ca3af' : 'linear-gradient(135deg, #1e2d5e 0%, #2d3580 100%)',
                   border: 'none',
                   borderRadius: '8px',
                   cursor: loading ? 'not-allowed' : 'pointer',
-                  boxShadow: loading ? 'none' : '0 2px 8px rgba(26,31,110,0.25)',
+                  boxShadow: loading ? 'none' : '0 2px 8px rgba(30,45,94,0.25)',
                   transition: 'all 0.2s ease',
                   letterSpacing: '0.3px'
                 }}
                 onMouseEnter={(e) => {
                   if (!loading) {
-                    e.target.style.boxShadow = '0 4px 12px rgba(26,31,110,0.35)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(30,45,94,0.35)';
                     e.target.style.transform = 'translateY(-1px)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!loading) {
-                    e.target.style.boxShadow = '0 2px 8px rgba(26,31,110,0.25)';
+                    e.target.style.boxShadow = '0 2px 8px rgba(30,45,94,0.25)';
                     e.target.style.transform = 'translateY(0)';
                   }
                 }}
@@ -275,7 +275,7 @@ export default function LoginPage() {
             fontSize: '13px',
             color: '#9a9a92'
           }}>
-            <p>Problemas para acessar? <a href="https://wa.me/5519994363644?text=Ola%20tenho%20uma%20duvida%20sobre%20o%20CFO%20Financas" target="_blank" rel="noopener noreferrer" style={{ color: '#1a1f6e', fontWeight: '500', textDecoration: 'none' }}>Fale com o suporte</a></p>
+            <p>Problemas para acessar? <a href="https://wa.me/5519994363644?text=Ola%20tenho%20uma%20duvida%20sobre%20o%20CFO%20Financas" target="_blank" rel="noopener noreferrer" style={{ color: '#1e2d5e', fontWeight: '500', textDecoration: 'none' }}>Fale com o suporte</a></p>
           </div>
         </div>
       </main>
