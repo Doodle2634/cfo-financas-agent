@@ -1,0 +1,51 @@
+const jwt = require('jsonwebtoken');
+
+const USERS = {
+  'cfo@csprojetos.com': 'Cfo@2026Brasil!%$#97514*'
+};
+
+const SECRET_KEY = process.env.JWT_SECRET || 'cfo-secret-key-2026-c-s-projetos';
+
+module.exports = async (req, res) => {
+  // Parse do body
+  let body = {};
+  if (req.method === 'POST') {
+    try {
+      body = JSON.parse(req.body || '{}');
+    } catch (e) {
+      return res.status(400).json({ error: 'JSON inválido' });
+    }
+  }
+
+  // POST /api/auth/login
+  if (req.method === 'POST' && req.url.includes('/auth/login')) {
+    const { email, password } = body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Email e senha obrigatórios' });
+    }
+
+    if (!USERS[email] || USERS[email] !== password) {
+      return res.status(401).json({ success: false, error: 'Credenciais inválidas' });
+    }
+
+    const token = jwt.sign(
+      { email, name: 'CFO C&S' },
+      SECRET_KEY,
+      { expiresIn: '24h' }
+    );
+
+    return res.status(200).json({
+      success: true,
+      token,
+      user: { email, name: 'CFO C&S' }
+    });
+  }
+
+  // POST /api/auth/logout
+  if (req.method === 'POST' && req.url.includes('/auth/logout')) {
+    return res.status(200).json({ success: true, message: 'Logout realizado' });
+  }
+
+  res.status(404).json({ error: 'Endpoint não encontrado' });
+};
