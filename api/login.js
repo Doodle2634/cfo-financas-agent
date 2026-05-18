@@ -1,6 +1,6 @@
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
-module.exports = function handler(req, res) {
+export default function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -20,4 +20,4 @@ module.exports = function handler(req, res) {
   }
 
   return res.status(401).json({ error: 'Invalid credentials' });
-};
+}
