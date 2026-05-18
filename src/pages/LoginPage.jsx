@@ -16,7 +16,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await API.post('/api/auth/login', { email, password });
+      const response = await API.post('/api/login', { email, password });
       setToken(response.data.token);
       navigate('/dashboard');
     } catch (err) {
