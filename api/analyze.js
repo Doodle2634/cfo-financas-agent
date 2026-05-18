@@ -7,6 +7,10 @@ async function getSharePointData() {
   const clientId = process.env.AZURE_CLIENT_ID;
   const clientSecret = process.env.AZURE_CLIENT_SECRET;
 
+  if (!tenantId || !clientId || !clientSecret) {
+    throw new Error('Azure credentials missing');
+  }
+
   const tokenRes = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -18,6 +22,7 @@ async function getSharePointData() {
     })
   });
 
+  if (!tokenRes.ok) throw new Error(`Azure auth failed: ${tokenRes.status}`);
   const { access_token } = await tokenRes.json();
 
   const dataRes = await fetch(
@@ -25,12 +30,15 @@ async function getSharePointData() {
     { headers: { Authorization: `Bearer ${access_token}` } }
   );
 
+  if (!dataRes.ok) throw new Error(`SharePoint fetch failed: ${dataRes.status}`);
   const { values } = await dataRes.json();
   return values;
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   const { question, month, year, audience, company } = req.body;
 
@@ -38,7 +46,6 @@ export default async function handler(req, res) {
     const data = await getSharePointData();
     const headers = data[0];
     const rows = data.slice(1, 200);
-
     const sample = rows.slice(0, 50).map(r =>
       headers.map((h, i) => `${h}: ${r[i]}`).join(' | ')
     ).join('\n');
@@ -49,28 +56,33 @@ Responda SEMPRE em português brasileiro.
 Adapte o nível técnico e o tom para o público: ${audience}.
 Seja direto, objetivo e estratégico.
 
-IMPORTANTE: Responda APENAS com um JSON válido no seguinte formato:
+IMPORTANTE: Responda APENAS com um JSON válido (sem markdown, sem \`\`\`json, apenas JSON puro):
 {
   "analysis": "texto da análise financeira aqui (2-4 parágrafos)",
   "kpis": {
-    "saldo": "valor formatado ex: -R$ 977k",
-    "recebimentos": "valor formatado ex: R$ 5,4M",
-    "pagamentos": "valor formatado ex: R$ 7,7M",
-    "gap": "valor formatado ex: -R$ 2,3M"
+    "saldo": "-R$ 977.000,00",
+    "recebimentos": "R$ 5.400.000,00",
+    "pagamentos": "R$ 7.700.000,00",
+    "gap": "-R$ 2.300.000,00"
   },
   "grafico": {
-    "tipo": "bar | linha | pizza | area | barHorizontal",
-    "titulo": "título do gráfico",
-    "horizontal": false,
-    "labels": ["label1", "label2"],
+    "tipo": "bar",
+    "titulo": "Fluxo de caixa - ${month} ${year}",
+    "labels": ["Semana 1", "Semana 2", "Semana 3", "Semana 4"],
     "datasets": [
-      {"label": "nome", "data": [1,2,3], "backgroundColor": "#1e2d5e"},
-      {"label": "nome2", "data": [4,5,6], "backgroundColor": "#c9a84c"}
+      {"label": "Recebimentos", "data": [1200000, 1450000, 980000, 1853534], "backgroundColor": "#1e2d5e"},
+      {"label": "Pagamentos", "data": [1800000, 2100000, 1650000, 2188146], "backgroundColor": "#c9a84c"}
     ]
   },
   "tabela": [
-    {"periodo": "Semana 1", "recebimentos": 1200000, "varRec": "+5%", "pagamentos": 1800000, "varPag": "+10%", "gap": -600000, "alerta": "Atenção"},
-    {"periodo": "Total", "recebimentos": 5480000, "varRec": "+8%", "pagamentos": 7740000, "varPag": "+12%", "gap": -2260000, "alerta": "Crítico"}
+    {"periodo": "Semana 1", "recebimentos": 1200000, "varRec": "+5,2%", "pagamentos": 1800000, "varPag": "+11,4%", "gap": -600000, "alerta": "Atenção"},
+    {"periodo": "Semana 2", "recebimentos": 1450000, "varRec": "+8,1%", "pagamentos": 2100000, "varPag": "+16,7%", "gap": -650000, "alerta": "Crítico"},
+    {"periodo": "Semana 3", "recebimentos": 980000, "varRec": "-3,4%", "pagamentos": 1650000, "varPag": "-4,2%", "gap": -670000, "alerta": "Atenção"},
+    {"periodo": "Semana 4", "recebimentos": 1853534, "varRec": "+18,9%", "pagamentos": 2188146, "varPag": "+2,1%", "gap": -334612, "alerta": "Normal"}
+  ],
+  "alertas": [
+    {"tipo": "crítico", "msg": "Gap negativo em todas as semanas"},
+    {"tipo": "atenção", "msg": "Semana 2 é crítica com maior déficit"}
   ]
 }`;
 
@@ -79,10 +91,12 @@ ${sample}
 
 Pergunta: ${question}
 Público: ${audience}
-Período: ${month} ${year}`;
+Período: ${month} ${year}
+
+Análise em JSON:`;
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 2000,
       messages: [{ role: 'user', content: userPrompt }],
       system: systemPrompt
@@ -100,7 +114,10 @@ Período: ${month} ${year}`;
     });
 
   } catch (err) {
-    console.error('Erro analyze:', err);
-    return res.status(500).json({ error: err.message });
+    console.error('Erro analyze:', err.message);
+    return res.status(500).json({ 
+      error: err.message,
+      details: err.stack 
+    });
   }
 }
