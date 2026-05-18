@@ -6,23 +6,40 @@ import { getToken, removeToken } from '../utils/auth';
 
 Chart.register(...registerables);
 
+const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+const gerarAnos = () => {
+  const agora = new Date().getFullYear();
+  const anos = [];
+  for (let i = agora - 5; i <= agora + 5; i++) anos.push(i);
+  return anos;
+};
+
+const fmtMoeda = (v) => {
+  if (typeof v !== 'number') return v;
+  const sinal = v < 0 ? '-R$ ' : 'R$ ';
+  const abs = Math.abs(v);
+  return sinal + abs.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 export default function DashboardPage() {
   const [question, setQuestion] = useState('');
-  const [month, setMonth] = useState('');
-  const [year, setYear] = useState('');
+  const [month, setMonth] = useState('Maio');
+  const [year, setYear] = useState(new Date().getFullYear().toString());
   const [audience, setAudience] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [kpis, setKpis] = useState({
-    saldo: '-R$ 977k',
-    recebimentos: 'R$ 5,4M',
-    pagamentos: 'R$ 7,7M',
-    gap: '-R$ 2,3M'
+    saldo: '-R$ 977.000,00',
+    recebimentos: 'R$ 5.400.000,00',
+    pagamentos: 'R$ 7.700.000,00',
+    gap: '-R$ 2.300.000,00'
   });
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
   const navigate = useNavigate();
+  const anos = gerarAnos();
 
   useEffect(() => {
     if (!getToken()) navigate('/login');
@@ -67,7 +84,7 @@ export default function DashboardPage() {
             callbacks: {
               label: ctx => {
                 const v = Math.abs(ctx.raw);
-                return ' R$ ' + (v >= 1000000 ? (v/1000000).toFixed(2)+'M' : (v/1000).toFixed(0)+'k');
+                return ' ' + fmtMoeda(v);
               }
             }
           }
@@ -80,7 +97,8 @@ export default function DashboardPage() {
               font: { size: 10 }, color: '#888',
               callback: v => {
                 const a = Math.abs(v);
-                return (v < 0 ? '-' : '') + 'R$' + (a >= 1000000 ? (a/1000000).toFixed(1)+'M' : (a/1000).toFixed(0)+'k');
+                const s = v < 0 ? '-' : '';
+                return s + 'R$' + (a >= 1000000 ? (a/1000000).toFixed(1)+'M' : (a/1000).toFixed(0)+'k');
               }
             }
           }
@@ -97,8 +115,8 @@ export default function DashboardPage() {
     try {
       const response = await API.post('/api/analyze', {
         question,
-        month: month || 'Maio',
-        year: year || '2026',
+        month,
+        year,
         audience: audience || 'Diretoria',
         company: 'C&S Projetos e Mercado'
       });
@@ -107,7 +125,6 @@ export default function DashboardPage() {
       setResult(data);
 
       if (data.grafico) renderChart(data.grafico);
-
       if (data.kpis) setKpis(data.kpis);
 
       setHistory(prev => [
@@ -125,12 +142,6 @@ export default function DashboardPage() {
   const handleLogout = () => {
     removeToken();
     navigate('/login');
-  };
-
-  const fmtVal = (v) => {
-    const a = Math.abs(v);
-    const s = v < 0 ? '-R$ ' : 'R$ ';
-    return s + (a >= 1000000 ? (a/1000000).toFixed(2)+'M' : (a/1000).toFixed(0)+'k');
   };
 
   const tableData = result?.tabela || [
@@ -184,7 +195,7 @@ export default function DashboardPage() {
       {/* FAIXA NAVY COM KPIs */}
       <div style={{ background: '#1e2d5e', padding: '22px 48px', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', letterSpacing: '2px', marginBottom: '14px' }}>
-          INDICADORES FINANCEIROS · {(month || 'MAIO').toUpperCase()} {year || '2026'}
+          INDICADORES FINANCEIROS · {month.toUpperCase()} {year}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
           {[
@@ -195,7 +206,7 @@ export default function DashboardPage() {
           ].map((k, i) => (
             <div key={i} style={{ background: 'rgba(255,255,255,0.08)', border: '0.5px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '16px 20px' }}>
               <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginBottom: '5px' }}>{k.label}</div>
-              <div style={{ fontSize: '22px', fontWeight: '700', color: 'white', lineHeight: '1' }}>{k.valor}</div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: 'white', lineHeight: '1' }}>{k.valor}</div>
               <div style={{ fontSize: '10px', color: k.up ? '#9FE1CB' : '#f09595', marginTop: '5px' }}>{k.trend}</div>
             </div>
           ))}
@@ -205,20 +216,18 @@ export default function DashboardPage() {
       {/* CONTEÚDO PRINCIPAL */}
       <main style={{ flex: 1, padding: '20px 48px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '1fr 300px', gap: '20px' }}>
 
-        {/* COLUNA ESQUERDA */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* COLUNA ESQUERDA — Gráfico + Resumo */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
 
           {/* GRÁFICO */}
-          <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px 12px', borderBottom: '0.5px solid #f0efe9', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '4px' }}>VISUALIZAÇÃO DINÂMICA</div>
-                <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e2d5e' }}>
-                  {result?.grafico?.titulo || `Fluxo de caixa — ${month || 'Maio'} ${year || '2026'}`}
-                </div>
-                <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>Atualiza automaticamente com cada análise</div>
+          <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '16px 20px 12px', borderBottom: '0.5px solid #f0efe9' }}>
+              <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '4px' }}>VISUALIZAÇÃO DINÂMICA</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e2d5e' }}>
+                {result?.grafico?.titulo || `Fluxo de caixa — ${month} ${year}`}
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>Atualiza automaticamente com cada análise</div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#666' }}>
                   <span style={{ width: '9px', height: '9px', borderRadius: '2px', background: '#1e2d5e', display: 'inline-block' }}></span>Recebimentos
                 </span>
@@ -227,59 +236,40 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
-            <div style={{ padding: '16px 20px' }}>
+            <div style={{ padding: '16px 20px', flex: 1 }}>
               <div style={{ position: 'relative', width: '100%', height: '200px' }}>
                 <canvas ref={chartRef}></canvas>
               </div>
             </div>
           </div>
 
-          {/* TABELA */}
-          <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 20px', borderBottom: '0.5px solid #f0efe9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '3px' }}>TABELA DE APOIO</div>
-                <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e2d5e' }}>Detalhamento semanal</div>
+          {/* RESUMO EXECUTIVO */}
+          <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '12px' }}>RESUMO EXECUTIVO</div>
+            <div style={{ fontSize: '13px', color: '#1e2d5e', fontWeight: '600', marginBottom: '12px' }}>Análise estratégica do período</div>
+            
+            {result?.analysis ? (
+              <div style={{ fontSize: '12px', lineHeight: '1.6', color: '#555', marginBottom: '16px' }}>
+                {result.analysis}
               </div>
-              <span style={{ fontSize: '11px', color: '#aaa' }}>valores · variações · alertas</span>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
-              <thead>
-                <tr style={{ background: '#f8f7f3', borderBottom: '0.5px solid #e8e8e3' }}>
-                  {['Período', 'Recebimentos', 'Var.%', 'Pagamentos', 'Var.%', 'Gap', 'Alerta'].map((h, i) => (
-                    <th key={i} style={{ padding: '9px 12px', color: '#888', fontWeight: '500', textAlign: i === 0 ? 'left' : i === 6 ? 'center' : 'right', paddingLeft: i === 0 ? '20px' : '12px' }}>{h}</th>
+            ) : (
+              <div style={{ fontSize: '12px', lineHeight: '1.6', color: '#aaa', marginBottom: '16px' }}>
+                Execute uma análise para visualizar o resumo estratégico com desvios, alertas e recomendações.
+              </div>
+            )}
+
+            {result?.alertas && (
+              <div style={{ borderTop: '0.5px solid #f0efe9', paddingTop: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '1px', marginBottom: '8px' }}>ALERTAS</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {result.alertas.map((a, i) => (
+                    <div key={i} style={{ fontSize: '11px', padding: '6px 10px', background: '#f8f7f3', borderRadius: '5px', borderLeft: `3px solid ${a.tipo === 'crítico' ? '#A32D2D' : a.tipo === 'atenção' ? '#854F0B' : '#3B6D11'}`, color: '#555' }}>
+                      {a.msg}
+                    </div>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {tableData.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '0.5px solid #f0efe9', background: i % 2 === 1 ? '#f8f7f3' : 'white' }}>
-                    <td style={{ padding: '9px 20px', color: '#1e2d5e', fontWeight: '500' }}>{row.periodo}</td>
-                    <td style={{ textAlign: 'right', padding: '9px 12px', color: '#333' }}>{typeof row.recebimentos === 'number' ? fmtVal(row.recebimentos) : row.recebimentos}</td>
-                    <td style={{ textAlign: 'right', padding: '9px 12px', color: varColor(row.varRec) }}>{row.varRec}</td>
-                    <td style={{ textAlign: 'right', padding: '9px 12px', color: '#333' }}>{typeof row.pagamentos === 'number' ? fmtVal(row.pagamentos) : row.pagamentos}</td>
-                    <td style={{ textAlign: 'right', padding: '9px 12px', color: varColor(row.varPag) }}>{row.varPag}</td>
-                    <td style={{ textAlign: 'right', padding: '9px 12px', color: '#A32D2D' }}>{typeof row.gap === 'number' ? fmtVal(row.gap) : row.gap}</td>
-                    <td style={{ textAlign: 'center', padding: '9px 12px' }}>
-                      <span style={{ ...badgeStyle(row.alerta), borderRadius: '4px', padding: '2px 8px', fontSize: '10px', fontWeight: '500' }}>{row.alerta}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: '#1e2d5e' }}>
-                  <td style={{ padding: '9px 20px', color: 'white', fontWeight: '600' }}>Total</td>
-                  <td style={{ textAlign: 'right', padding: '9px 12px', color: 'white', fontWeight: '500' }}>R$ 5,48M</td>
-                  <td style={{ textAlign: 'right', padding: '9px 12px', color: '#9FE1CB', fontSize: '11px' }}>+8,0%</td>
-                  <td style={{ textAlign: 'right', padding: '9px 12px', color: 'white', fontWeight: '500' }}>R$ 7,74M</td>
-                  <td style={{ textAlign: 'right', padding: '9px 12px', color: '#f09595', fontSize: '11px' }}>+12,0%</td>
-                  <td style={{ textAlign: 'right', padding: '9px 12px', color: '#f09595', fontWeight: '500' }}>-R$ 2,3M</td>
-                  <td style={{ textAlign: 'center', padding: '9px 12px' }}>
-                    <span style={{ background: 'rgba(255,255,255,0.15)', color: 'white', borderRadius: '4px', padding: '2px 7px', fontSize: '10px' }}>Gap</span>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -293,30 +283,27 @@ export default function DashboardPage() {
 
           <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div>
-                <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Mês da análise</label>
-                <input type="text" value={month} onChange={e => setMonth(e.target.value)} placeholder="Ex: Maio"
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                  onFocus={e => e.target.style.borderColor = '#1e2d5e'}
-                  onBlur={e => e.target.style.borderColor = '#dadad2'}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Ano da análise</label>
-                <input type="text" value={year} onChange={e => setYear(e.target.value)} placeholder="Ex: 2026"
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                  onFocus={e => e.target.style.borderColor = '#1e2d5e'}
-                  onBlur={e => e.target.style.borderColor = '#dadad2'}
-                />
-              </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Mês</label>
+              <select value={month} onChange={e => setMonth(e.target.value)}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
+                {meses.map((m, i) => <option key={i} value={m}>{m}</option>)}
+              </select>
             </div>
 
             <div>
-              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Público da análise</label>
+              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Ano</label>
+              <select value={year} onChange={e => setYear(e.target.value)}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
+                {anos.map((a, i) => <option key={i} value={a.toString()}>{a}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Público</label>
               <select value={audience} onChange={e => setAudience(e.target.value)}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: audience ? '#1e2d5e' : '#bbb', fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
-                <option value="" disabled>Selecione o público</option>
+                <option value="">Selecione o público</option>
                 <option value="Diretoria">Diretoria</option>
                 <option value="Conselho Administrativo">Conselho Administrativo</option>
                 <option value="Gestores">Gestores</option>
@@ -331,8 +318,6 @@ export default function DashboardPage() {
                 placeholder="Ex: Qual o saldo atual? Quais os maiores pagamentos do mês?"
                 rows={3}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', resize: 'none', lineHeight: '1.5', boxSizing: 'border-box' }}
-                onFocus={e => e.target.style.borderColor = '#1e2d5e'}
-                onBlur={e => e.target.style.borderColor = '#dadad2'}
               />
             </div>
 
@@ -345,15 +330,6 @@ export default function DashboardPage() {
                 {loading ? 'Analisando...' : 'Analisar'}
               </span>
             </button>
-
-            {result?.analysis && (
-              <div style={{ background: '#f5f5f0', borderRadius: '6px', borderLeft: '3px solid #c9a84c', padding: '12px', fontSize: '12px', color: '#444', lineHeight: '1.6' }}>
-                <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '1px', marginBottom: '6px' }}>
-                  ANÁLISE · {(audience || 'DIRETORIA').toUpperCase()}
-                </div>
-                {result.analysis}
-              </div>
-            )}
 
             {history.length > 0 && (
               <div style={{ borderTop: '0.5px solid #e8e8e3', paddingTop: '10px' }}>
@@ -373,8 +349,58 @@ export default function DashboardPage() {
         </div>
       </main>
 
+      {/* TABELA */}
+      <div style={{ padding: '20px 48px 0', boxSizing: 'border-box' }}>
+        <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '0.5px solid #f0efe9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '3px' }}>TABELA DE APOIO</div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e2d5e' }}>Detalhamento semanal</div>
+            </div>
+            <span style={{ fontSize: '11px', color: '#aaa' }}>valores · variações · alertas</span>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
+            <thead>
+              <tr style={{ background: '#f8f7f3', borderBottom: '0.5px solid #e8e8e3' }}>
+                {['Período', 'Recebimentos', 'Var.%', 'Pagamentos', 'Var.%', 'Gap', 'Alerta'].map((h, i) => (
+                  <th key={i} style={{ padding: '9px 12px', color: '#888', fontWeight: '500', textAlign: i === 0 ? 'left' : i === 6 ? 'center' : 'right', paddingLeft: i === 0 ? '20px' : '12px' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tableData.map((row, i) => (
+                <tr key={i} style={{ borderBottom: '0.5px solid #f0efe9', background: i % 2 === 1 ? '#f8f7f3' : 'white' }}>
+                  <td style={{ padding: '9px 20px', color: '#1e2d5e', fontWeight: '500' }}>{row.periodo}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: '#333' }}>{fmtMoeda(row.recebimentos)}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: varColor(row.varRec) }}>{row.varRec}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: '#333' }}>{fmtMoeda(row.pagamentos)}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: varColor(row.varPag) }}>{row.varPag}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: '#A32D2D' }}>{fmtMoeda(row.gap)}</td>
+                  <td style={{ textAlign: 'center', padding: '9px 12px' }}>
+                    <span style={{ ...badgeStyle(row.alerta), borderRadius: '4px', padding: '2px 8px', fontSize: '10px', fontWeight: '500' }}>{row.alerta}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: '#1e2d5e' }}>
+                <td style={{ padding: '9px 20px', color: 'white', fontWeight: '600' }}>Total</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: 'white', fontWeight: '500' }}>R$ 5.480.000,00</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: '#9FE1CB', fontSize: '11px' }}>+8,0%</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: 'white', fontWeight: '500' }}>R$ 7.740.000,00</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: '#f09595', fontSize: '11px' }}>+12,0%</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: '#f09595', fontWeight: '500' }}>-R$ 2.260.000,00</td>
+                <td style={{ textAlign: 'center', padding: '9px 12px' }}>
+                  <span style={{ background: 'rgba(255,255,255,0.15)', color: 'white', borderRadius: '4px', padding: '2px 7px', fontSize: '10px' }}>Gap</span>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
       {/* FOOTER */}
-      <footer style={{ width: '100%', padding: '16px 48px', borderTop: '1px solid #e8e8e3', backgroundColor: 'white', boxSizing: 'border-box' }}>
+      <footer style={{ width: '100%', padding: '16px 48px', marginTop: '20px', borderTop: '1px solid #e8e8e3', backgroundColor: 'white', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '20px', fontSize: '11px', color: '#a0a098' }}>
           <span>© 2026 C&S Projetos e Mercado</span>
           <span style={{ color: '#d4d4cc' }}>|</span>
