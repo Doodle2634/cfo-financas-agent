@@ -42,6 +42,23 @@ export default async function handler(req, res) {
 
   const { question, month, year, audience, company } = req.body;
 
+  // Validação: perguntas vagas precisam de mais contexto
+  const vagaKeywords = ['algum', 'algo', 'qualquer', 'geral', 'overview', 'resumo geral'];
+  const isPerguntaVaga = vagaKeywords.some(k => question.toLowerCase().includes(k));
+
+  if (isPerguntaVaga || question.length < 10) {
+    return res.status(200).json({
+      needsClarification: true,
+      analysis: 'Para fornecer uma análise precisa, preciso de mais detalhes. Você quer saber sobre: recebimentos, pagamentos, saldo, projeções, ou algum item específico?',
+      kpis: {
+        saldo: '-R$ 2.254.612,00',
+        recebimentos: 'R$ 5.483.534,00',
+        pagamentos: 'R$ 7.738.146,00',
+        gap: '-R$ 2.254.612,00'
+      }
+    });
+  }
+
   try {
     let data;
     try {
@@ -68,7 +85,12 @@ Responda SEMPRE em português brasileiro.
 Adapte o nível técnico e o tom para o público: ${audience}.
 Seja direto, objetivo e estratégico.
 
-RETORNE APENAS JSON VÁLIDO (sem markdown, sem \`\`\`json):`;
+REGRAS OBRIGATÓRIAS:
+1. Retorne APENAS JSON VÁLIDO (sem markdown, sem \`\`\`json, sem preamble)
+2. O campo "kpis" DEVE conter VALORES ABSOLUTOS formatados (ex: "R$ 5.483.534,00")
+3. NUNCA retorne apenas percentuais nos KPIs
+4. Calcule os valores a partir dos dados fornecidos
+5. Use formatação brasileira: R$ X.XXX.XXX,XX`;
 
     const userPrompt = `Dados financeiros (${month} ${year}):
 ${sample}
@@ -76,56 +98,86 @@ ${sample}
 Pergunta: ${question}
 Público: ${audience}
 
-Retorne JSON com estrutura:
+CALCULE os totais dos dados acima e retorne JSON:
 {
-  "analysis": "análise em 2-3 parágrafos",
+  "analysis": "análise estratégica em 2-4 parágrafos respondendo diretamente a pergunta",
   "kpis": {
-    "saldo": "-R$ 977.000,00",
-    "recebimentos": "R$ 5.400.000,00",
-    "pagamentos": "R$ 7.700.000,00",
-    "gap": "-R$ 2.300.000,00"
+    "saldo": "[CALCULE: total recebimentos - total pagamentos, formato R$ X.XXX.XXX,XX]",
+    "recebimentos": "[CALCULE: soma total de recebimentos, formato R$ X.XXX.XXX,XX]",
+    "pagamentos": "[CALCULE: soma total de pagamentos, formato R$ X.XXX.XXX,XX]",
+    "gap": "[CALCULE: diferença negativa, formato -R$ X.XXX.XXX,XX]"
   },
   "grafico": {
     "tipo": "bar",
-    "titulo": "Fluxo de caixa - ${month} ${year}",
+    "titulo": "Fluxo de caixa semanal - ${month} ${year}",
     "labels": ["Semana 1", "Semana 2", "Semana 3", "Semana 4"],
     "datasets": [
-      {"label": "Recebimentos", "data": [1200000, 1450000, 980000, 1853534], "backgroundColor": "#1e2d5e"},
-      {"label": "Pagamentos", "data": [1800000, 2100000, 1650000, 2188146], "backgroundColor": "#c9a84c"}
+      {"label": "Recebimentos", "data": [valores_reais_dos_dados], "backgroundColor": "#1e2d5e"},
+      {"label": "Pagamentos", "data": [valores_reais_dos_dados], "backgroundColor": "#c9a84c"}
     ]
   },
   "tabela": [
-    {"periodo": "Semana 1", "recebimentos": 1200000, "varRec": "+5,2%", "pagamentos": 1800000, "varPag": "+11,4%", "gap": -600000, "alerta": "Atenção"}
+    {"periodo": "Semana 1", "recebimentos": valor_numero, "varRec": "+X%", "pagamentos": valor_numero, "varPag": "+Y%", "gap": valor_numero, "alerta": "Normal/Atenção/Crítico"}
   ],
   "alertas": [
-    {"tipo": "crítico", "msg": "Gap negativo"}
+    {"tipo": "crítico|atenção|info", "msg": "descrição objetiva do alerta"}
   ]
-}`;
+}
+
+IMPORTANTE: Use os valores REAIS dos dados fornecidos, não invente números.`;
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2000,
+      max_tokens: 3000,
       messages: [{ role: 'user', content: userPrompt }],
       system: systemPrompt
     });
 
     const text = response.content[0].text;
-    console.log('Claude response:', text);
+    console.log('Claude raw response:', text.substring(0, 500));
 
     const clean = text.replace(/```json|```/g, '').trim();
     let parsed;
     
     try {
       parsed = JSON.parse(clean);
+      
+      // Validação robusta: garantir que KPIs têm valores
+      if (!parsed.kpis || !parsed.kpis.saldo || parsed.kpis.saldo.includes('%')) {
+        console.warn('KPIs inválidos, recalculando...');
+        
+        // Calcular valores reais dos dados
+        const totalRec = rows.reduce((sum, r) => sum + (parseFloat(r[1]) || 0), 0);
+        const totalPag = rows.reduce((sum, r) => sum + (parseFloat(r[2]) || 0), 0);
+        const gap = totalRec - totalPag;
+        
+        parsed.kpis = {
+          saldo: gap < 0 ? `-R$ ${Math.abs(gap).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
+                         : `R$ ${gap.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+          recebimentos: `R$ ${totalRec.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+          pagamentos: `R$ ${totalPag.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+          gap: gap < 0 ? `-R$ ${Math.abs(gap).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
+                       : `R$ ${gap.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+        };
+      }
+      
     } catch (parseErr) {
-      console.error('JSON parse error. Raw text:', clean);
+      console.error('JSON parse error. Raw text:', clean.substring(0, 300));
+      
+      // Fallback: calcular valores manualmente
+      const totalRec = rows.reduce((sum, r) => sum + (parseFloat(r[1]) || 0), 0);
+      const totalPag = rows.reduce((sum, r) => sum + (parseFloat(r[2]) || 0), 0);
+      const gap = totalRec - totalPag;
+      
       parsed = {
-        analysis: clean,
+        analysis: `Análise para ${month} ${year}: ${clean.substring(0, 500)}`,
         kpis: {
-          saldo: '-R$ 977.000,00',
-          recebimentos: 'R$ 5.400.000,00',
-          pagamentos: 'R$ 7.700.000,00',
-          gap: '-R$ 2.300.000,00'
+          saldo: gap < 0 ? `-R$ ${Math.abs(gap).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
+                         : `R$ ${gap.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+          recebimentos: `R$ ${totalRec.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+          pagamentos: `R$ ${totalPag.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+          gap: gap < 0 ? `-R$ ${Math.abs(gap).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigals: 2})}` 
+                       : `R$ ${gap.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
         }
       };
     }
@@ -141,7 +193,8 @@ Retorne JSON com estrutura:
     console.error('Erro analyze:', err.message, err.stack);
     return res.status(500).json({ 
       error: err.message,
-      type: err.name
+      type: err.name,
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 }
