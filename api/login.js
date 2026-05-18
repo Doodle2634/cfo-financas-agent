@@ -6,9 +6,8 @@ export default function handler(req, res) {
   }
 
   const { email, password } = req.body;
-
   const VALID_EMAIL = 'cfo@csprojetos.com';
-  const VALID_PASSWORD = 'Cfo@2026Brasil!%$#97514*';
+  const VALID_PASSWORD = 'senha123';
 
   if (email === VALID_EMAIL && password === VALID_PASSWORD) {
     const token = jwt.sign(
