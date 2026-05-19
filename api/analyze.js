@@ -26,7 +26,7 @@ async function getSharePointData() {
   const { access_token } = await tokenRes.json();
 
   const dataRes = await fetch(
-    'https://graph.microsoft.com/v1.0/sites/csprojeto.sharepoint.com:/sites/PDSaladeGuerra:/drive/root:/children/Documentos%20Compartilhados/children/Mario%20Fontana/children/Claude:/children/dados-financeiros.xlsx:/workbook/worksheets/f_FluxoDeCaixaProjetado/usedRange',
+    'https://graph.microsoft.com/v1.0/drives/b!c5nalfkfTE23uBLQOh11Si1LIbAMswVIljZDXavttxJIfa4qV9uCT53W5KhUUQP-/items/01RQGAZ7JWK6JLH25XVNEI4TCZETB3QZOY/workbook/worksheets/f_FluxoDeCaixaProjetado/usedRange',
     { headers: { Authorization: `Bearer ${access_token}` } }
   );
 
@@ -198,5 +198,6 @@ IMPORTANTE: Use os valores REAIS dos dados fornecidos, não invente números.`;
     });
   }
 }
+
 
 
