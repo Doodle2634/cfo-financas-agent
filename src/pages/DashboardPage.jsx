@@ -31,10 +31,10 @@ export default function DashboardPage() {
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [kpis, setKpis] = useState({
-    saldo: '-R$ 977.000,00',
-    recebimentos: 'R$ 5.400.000,00',
-    pagamentos: 'R$ 7.700.000,00',
-    gap: '-R$ 2.300.000,00'
+    saldo: 'R$ 0,00',
+    recebimentos: 'R$ 0,00',
+    pagamentos: 'R$ 0,00',
+    gap: 'R$ 0,00'
   });
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
@@ -45,16 +45,9 @@ export default function DashboardPage() {
     if (!getToken()) navigate('/login');
   }, []);
 
-  useEffect(() => {
-    renderChart({
-      tipo: 'bar',
-      labels: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'],
-      datasets: [
-        { label: 'Recebimentos', data: [1200000, 1450000, 980000, 1853534], backgroundColor: '#1e2d5e' },
-        { label: 'Pagamentos', data: [1800000, 2100000, 1650000, 2188146], backgroundColor: '#c9a84c' }
-      ]
-    });
-  }, []);
+  /* COMENTADO - renderiza apenas após análise
+  
+  */
 
   const renderChart = (chartData) => {
     if (!chartRef.current) return;
@@ -423,5 +416,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 
