@@ -203,12 +203,8 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
           {[
-            { label: 'SALDO ATUAL', valor: kpis.saldo, trend: 'Queda desde Jan', up: false },
-            { label: 'RECEBIMENTOS', valor: kpis.recebimentos, trend: '+8% vs mÃªs ant.', up: true },
-            { label: 'PAGAMENTOS', valor: kpis.pagamentos, trend: '+12% vs mÃªs ant.', up: false },
-            { label: 'GAP LÃQUIDO', valor: kpis.gap, trend: 'AtenÃ§Ã£o necessÃ¡ria', up: false },
-          ].map((k, i) => (
-            <div key={i} style={{ background: 'rgba(255,255,255,0.08)', border: '0.5px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '16px 20px' }}>
+            { label: 'SALDO ATUAL', valor: kpis.saldo, trend: '', up: false },
+            { label: 'RECEBIMENTOS', valor: kpis.recebimentos, trend: '<div key={i} style={{ background: 'rgba(255,255,255,0.08)', border: '0.5px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '16px 20px' }}>
               <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginBottom: '5px' }}>{k.label}</div>
               <div style={{ fontSize: '18px', fontWeight: '700', color: 'white', lineHeight: '1' }}>{k.valor}</div>
               <div style={{ fontSize: '10px', color: k.up ? '#9FE1CB' : '#f09595', marginTop: '5px' }}>{k.trend}</div>
@@ -416,6 +412,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 
 
