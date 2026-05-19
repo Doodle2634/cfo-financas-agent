@@ -1,161 +1,414 @@
-﻿import { useState } from 'react';
-import { Send, TrendingUp, TrendingDown, DollarSign, AlertCircle, RotateCcw } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Chart, registerables } from 'chart.js';
+import API from '../utils/api';
+import { getToken, removeToken } from '../utils/auth';
+
+Chart.register(...registerables);
+
+const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+const gerarAnos = () => {
+  const agora = new Date().getFullYear();
+  const anos = [];
+  for (let i = agora - 5; i <= agora + 5; i++) anos.push(i);
+  return anos;
+};
+
+const fmtMoeda = (v) => {
+  if (typeof v !== 'number') return v;
+  const sinal = v < 0 ? '-R$ ' : 'R$ ';
+  const abs = Math.abs(v);
+  return sinal + abs.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
 export default function DashboardPage() {
-  const [month, setMonth] = useState('Maio');
-  const [year, setYear] = useState('2026');
-  const [audience, setAudience] = useState('');
   const [question, setQuestion] = useState('');
+  const [month, setMonth] = useState('Maio');
+  const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [audience, setAudience] = useState('');
   const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState(null);
+  const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [kpis, setKpis] = useState({
+    saldo: '-R$ 977.000,00',
+    recebimentos: 'R$ 5.400.000,00',
+    pagamentos: 'R$ 7.700.000,00',
+    gap: '-R$ 2.300.000,00'
+  });
+  const chartRef = useRef(null);
+  const chartInstance = useRef(null);
+  const navigate = useNavigate();
+  const anos = gerarAnos();
 
-  const monthMap = { Janeiro: '1', Fevereiro: '2', Março: '3', Abril: '4', Maio: '5', Junho: '6', Julho: '7', Agosto: '8', Setembro: '9', Outubro: '10', Novembro: '11', Dezembro: '12' };
+  useEffect(() => {
+    if (!getToken()) navigate('/login');
+  }, []);
+
+  useEffect(() => {
+    renderChart({
+      tipo: 'bar',
+      labels: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'],
+      datasets: [
+        { label: 'Recebimentos', data: [1200000, 1450000, 980000, 1853534], backgroundColor: '#1e2d5e' },
+        { label: 'Pagamentos', data: [1800000, 2100000, 1650000, 2188146], backgroundColor: '#c9a84c' }
+      ]
+    });
+  }, []);
+
+  const renderChart = (chartData) => {
+    if (!chartRef.current) return;
+    if (chartInstance.current) chartInstance.current.destroy();
+
+    chartInstance.current = new Chart(chartRef.current, {
+      type: chartData.tipo === 'linha' ? 'line' : chartData.tipo === 'pizza' ? 'doughnut' : 'bar',
+      data: {
+        labels: chartData.labels,
+        datasets: chartData.datasets.map(d => ({
+          ...d,
+          borderRadius: 3,
+          tension: 0.3,
+          fill: chartData.tipo === 'area',
+          borderColor: d.backgroundColor,
+          borderWidth: chartData.tipo === 'linha' || chartData.tipo === 'area' ? 2 : 0,
+          pointRadius: chartData.tipo === 'linha' ? 4 : 0,
+        }))
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: chartData.horizontal ? 'y' : 'x',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const v = Math.abs(ctx.raw);
+                return ' ' + fmtMoeda(v);
+              }
+            }
+          }
+        },
+        scales: chartData.tipo === 'pizza' ? {} : {
+          x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#888' } },
+          y: {
+            grid: { color: 'rgba(0,0,0,0.04)' },
+            ticks: {
+              font: { size: 10 }, color: '#888',
+              callback: v => {
+                const a = Math.abs(v);
+                const s = v < 0 ? '-' : '';
+                return s + 'R$' + (a >= 1000000 ? (a/1000000).toFixed(1)+'M' : (a/1000).toFixed(0)+'k');
+              }
+            }
+          }
+        }
+      }
+    });
+  };
 
   const handleAnalyze = async () => {
-    if (!question.trim() || !audience) return;
+    if (!question.trim()) return;
     setLoading(true);
+    setResult(null);
 
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, month: monthMap[month], year, audience, company: 'C&S Projetos e Mercado' })
+      const response = await API.post('/api/analyze', {
+        question,
+        month,
+        year,
+        audience: audience || 'Diretoria',
+        company: 'C&S Projetos e Mercado'
       });
-      const data = await res.json();
-      setAnalysis(data);
-    } catch (error) {
-      console.error('Erro:', error);
+
+      const data = response.data;
+      setResult(data);
+
+      if (data.grafico) renderChart(data.grafico);
+      if (data.kpis) setKpis(data.kpis);
+
+      setHistory(prev => [
+        { question, time: 'agora', result: data },
+        ...prev.slice(0, 4)
+      ]);
+
+    } catch (err) {
+      setResult({ analysis: 'Erro ao conectar com a IA. Tente novamente.' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleReset = () => {
-    setAnalysis(null);
-    setQuestion('');
+  const handleLogout = () => {
+    removeToken();
+    navigate('/login');
   };
 
-  const kpis = analysis?.kpis || { saldo: 'R$ 0,00', recebimentos: 'R$ 0,00', pagamentos: 'R$ 0,00', gap: 'R$ 0,00' };
+  const tableData = result?.tabela || [
+    { periodo: 'Semana 1', recebimentos: 1200000, varRec: '+5,2%', pagamentos: 1800000, varPag: '+11,4%', gap: -600000, alerta: 'Atenção' },
+    { periodo: 'Semana 2', recebimentos: 1450000, varRec: '+8,1%', pagamentos: 2100000, varPag: '+16,7%', gap: -650000, alerta: 'Crítico' },
+    { periodo: 'Semana 3', recebimentos: 980000, varRec: '-3,4%', pagamentos: 1650000, varPag: '-4,2%', gap: -670000, alerta: 'Atenção' },
+    { periodo: 'Semana 4', recebimentos: 1853534, varRec: '+18,9%', pagamentos: 2188146, varPag: '+2,1%', gap: -334612, alerta: 'Normal' },
+  ];
+
+  const badgeStyle = (alerta) => {
+    if (alerta === 'Normal') return { background: '#eaf3de', color: '#3B6D11' };
+    if (alerta === 'Crítico') return { background: '#FCEBEB', color: '#A32D2D' };
+    return { background: '#FAEEDA', color: '#854F0B' };
+  };
+
+  const varColor = (v) => {
+    if (typeof v === 'string') return v.startsWith('-') ? '#A32D2D' : '#3B6D11';
+    return v < 0 ? '#A32D2D' : '#3B6D11';
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-[#1e2d5e] rounded flex items-center justify-center text-white font-bold text-xl">C&S</div>
-          <h1 className="text-xl font-semibold text-gray-900">CFO FINANÇAS</h1>
+    <div style={{ minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', backgroundColor: '#f5f5f0', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' }}>
+
+      {/* HEADER */}
+      <header style={{ width: '100%', padding: '16px 48px', backgroundColor: 'white', borderBottom: '1px solid #e8e8e3', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <img src="/assets/Icon CS 2026 Branco EST1975.png" alt="C&S" style={{ height: '48px' }} />
+          <div style={{ width: '1px', height: '28px', background: '#dadad2' }}></div>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e2d5e', letterSpacing: '0.5px' }}>CFO FINANÇAS</span>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="text-gray-600 hover:text-gray-900">Início</button>
-          <button className="text-gray-600 hover:text-gray-900">Análises</button>
-          <button className="text-gray-600 hover:text-gray-900">Relatórios</button>
-          <div className="w-10 h-10 bg-[#1e2d5e] rounded-full flex items-center justify-center text-white font-semibold">G</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <span style={{ fontSize: '13px', color: '#888' }}>Início</span>
+          <span style={{ fontSize: '13px', color: '#888' }}>Análises</span>
+          <span style={{ fontSize: '13px', color: '#888' }}>Relatórios</span>
+          <div style={{ width: '1px', height: '20px', background: '#dadad2' }}></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#1e2d5e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '10px', color: 'white', fontWeight: '600' }}>CF</span>
+            </div>
+            <span style={{ fontSize: '12px', color: '#555' }}>cfo@csprojetos.com</span>
+          </div>
+          <button onClick={handleLogout} style={{ border: '1px solid #dadad2', borderRadius: '5px', padding: '6px 14px', background: 'white', cursor: 'pointer', fontSize: '12px', color: '#888' }}>
+            Sair
+          </button>
         </div>
       </header>
 
-      <div className="px-6 py-8">
-        <h2 className="text-sm font-medium text-gray-500 mb-4">INDICADORES FINANCEIROS - {month.toUpperCase()} {year}</h2>
-        
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-[#1e2d5e] text-white p-6 rounded-lg">
-            <div className="text-sm opacity-80 mb-2">SALDO ATUAL</div>
-            <div className="text-2xl font-bold">{kpis.saldo}</div>
-            <div className="text-xs opacity-60 mt-2">Queda desde Jan</div>
-          </div>
-          <div className="bg-[#1e2d5e] text-white p-6 rounded-lg">
-            <div className="text-sm opacity-80 mb-2">RECEBIMENTOS</div>
-            <div className="text-2xl font-bold">{kpis.recebimentos}</div>
-            <div className="text-xs opacity-60 mt-2">+5% vs mês ant.</div>
-          </div>
-          <div className="bg-[#1e2d5e] text-white p-6 rounded-lg">
-            <div className="text-sm opacity-80 mb-2">PAGAMENTOS</div>
-            <div className="text-2xl font-bold">{kpis.pagamentos}</div>
-            <div className="text-xs opacity-60 mt-2">+12% vs mês ant.</div>
-          </div>
-          <div className="bg-[#1e2d5e] text-white p-6 rounded-lg">
-            <div className="text-sm opacity-80 mb-2">GAP LÍQUIDO</div>
-            <div className="text-2xl font-bold">{kpis.gap}</div>
-            <div className="text-xs opacity-60 mt-2">Atenção necessária</div>
-          </div>
+      {/* LINHA DOURADA */}
+      <div style={{ height: '2px', background: 'linear-gradient(90deg, #c9a84c 0%, #e8d9a0 50%, #c9a84c 100%)', width: '100%' }}></div>
+
+      {/* FAIXA NAVY COM KPIs */}
+      <div style={{ background: '#1e2d5e', padding: '22px 48px', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', letterSpacing: '2px', marginBottom: '14px' }}>
+          INDICADORES FINANCEIROS · {month.toUpperCase()} {year}
         </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+          {[
+            { label: 'SALDO ATUAL', valor: kpis.saldo, trend: 'Queda desde Jan', up: false },
+            { label: 'RECEBIMENTOS', valor: kpis.recebimentos, trend: '+8% vs mês ant.', up: true },
+            { label: 'PAGAMENTOS', valor: kpis.pagamentos, trend: '+12% vs mês ant.', up: false },
+            { label: 'GAP LÍQUIDO', valor: kpis.gap, trend: 'Atenção necessária', up: false },
+          ].map((k, i) => (
+            <div key={i} style={{ background: 'rgba(255,255,255,0.08)', border: '0.5px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '16px 20px' }}>
+              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginBottom: '5px' }}>{k.label}</div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: 'white', lineHeight: '1' }}>{k.valor}</div>
+              <div style={{ fontSize: '10px', color: k.up ? '#9FE1CB' : '#f09595', marginTop: '5px' }}>{k.trend}</div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 space-y-6">
-            {analysis?.grafico && (
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h3 className="text-sm font-medium text-gray-500 mb-4">VISUALIZAÇÃO DINÂMICA</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={analysis.grafico.datasets[0].data.map((v, i) => ({ name: analysis.grafico.labels[i], Recebimentos: v, Pagamentos: analysis.grafico.datasets[1].data[i] }))}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="Recebimentos" fill="#1e2d5e" />
-                    <Bar dataKey="Pagamentos" fill="#c9a84c" />
-                  </BarChart>
-                </ResponsiveContainer>
+      {/* CONTEÚDO PRINCIPAL */}
+      <main style={{ flex: 1, padding: '20px 48px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '1fr 300px', gap: '20px' }}>
+
+        {/* COLUNA ESQUERDA — Gráfico + Resumo */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+          {/* GRÁFICO */}
+          <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '16px 20px 12px', borderBottom: '0.5px solid #f0efe9' }}>
+              <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '4px' }}>VISUALIZAÇÃO DINÂMICA</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e2d5e' }}>
+                {result?.grafico?.titulo || `Fluxo de caixa — ${month} ${year}`}
               </div>
-            )}
-
-            {analysis?.analysis && (
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h3 className="text-sm font-medium text-gray-500 mb-4">RESUMO EXECUTIVO</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{analysis.analysis}</p>
+              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>Atualiza automaticamente com cada análise</div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#666' }}>
+                  <span style={{ width: '9px', height: '9px', borderRadius: '2px', background: '#1e2d5e', display: 'inline-block' }}></span>Recebimentos
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#666' }}>
+                  <span style={{ width: '9px', height: '9px', borderRadius: '2px', background: '#c9a84c', display: 'inline-block' }}></span>Pagamentos
+                </span>
               </div>
-            )}
-          </div>
-
-          <div className="bg-[#1e2d5e] text-white p-6 rounded-lg">
-            <h3 className="font-semibold mb-4">Faça sua pergunta</h3>
-            <p className="text-sm opacity-80 mb-4">Claude AI - SharePoint - 4.004 registros</p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs opacity-80">Mês</label>
-                <select value={month} onChange={(e) => setMonth(e.target.value)} className="w-full mt-1 bg-white text-gray-900 rounded px-3 py-2">
-                  {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map(m => <option key={m}>{m}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs opacity-80">Ano</label>
-                <select value={year} onChange={(e) => setYear(e.target.value)} className="w-full mt-1 bg-white text-gray-900 rounded px-3 py-2">
-                  <option>2024</option>
-                  <option>2025</option>
-                  <option>2026</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs opacity-80">Público</label>
-                <select value={audience} onChange={(e) => setAudience(e.target.value)} className="w-full mt-1 bg-white text-gray-900 rounded px-3 py-2">
-                  <option value="">Selecione o público</option>
-                  <option value="Diretoria">Diretoria</option>
-                  <option value="Gerência">Gerência</option>
-                  <option value="Operacional">Operacional</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs opacity-80">Sua pergunta</label>
-                <textarea value={question} onChange={(e) => setQuestion(e.target.value)} className="w-full mt-1 bg-white text-gray-900 rounded px-3 py-2 h-24" placeholder="Ex: Qual o saldo atual? Quais os maiores pagamentos do mês?" />
-              </div>
-
-              <div className="flex gap-2">
-                <button onClick={handleAnalyze} disabled={loading || !audience} className="flex-1 bg-white text-[#1e2d5e] px-4 py-3 rounded font-semibold hover:bg-gray-100 disabled:opacity-50">
-                  {loading ? 'Analisando...' : 'Analisar'}
-                </button>
-                {analysis && (
-                  <button onClick={handleReset} className="bg-gray-700 text-white p-3 rounded hover:bg-gray-600">
-                    <RotateCcw size={20} />
-                  </button>
-                )}
+            </div>
+            <div style={{ padding: '16px 20px', flex: 1 }}>
+              <div style={{ position: 'relative', width: '100%', height: '200px' }}>
+                <canvas ref={chartRef}></canvas>
               </div>
             </div>
           </div>
+
+          {/* RESUMO EXECUTIVO */}
+          <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '12px' }}>RESUMO EXECUTIVO</div>
+            <div style={{ fontSize: '13px', color: '#1e2d5e', fontWeight: '600', marginBottom: '12px' }}>Análise estratégica do período</div>
+            
+            {result?.analysis ? (
+              <div style={{ fontSize: '12px', lineHeight: '1.6', color: '#555', marginBottom: '16px' }}>
+                {result.analysis}
+              </div>
+            ) : (
+              <div style={{ fontSize: '12px', lineHeight: '1.6', color: '#aaa', marginBottom: '16px' }}>
+                Execute uma análise para visualizar o resumo estratégico com desvios, alertas e recomendações.
+              </div>
+            )}
+
+            {result?.alertas && (
+              <div style={{ borderTop: '0.5px solid #f0efe9', paddingTop: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '1px', marginBottom: '8px' }}>ALERTAS</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {result.alertas.map((a, i) => (
+                    <div key={i} style={{ fontSize: '11px', padding: '6px 10px', background: '#f8f7f3', borderRadius: '5px', borderLeft: `3px solid ${a.tipo === 'crítico' ? '#A32D2D' : a.tipo === 'atenção' ? '#854F0B' : '#3B6D11'}`, color: '#555' }}>
+                      {a.msg}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* COLUNA DIREITA — PAINEL IA */}
+        <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: '#1e2d5e', padding: '16px 20px' }}>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', letterSpacing: '2px', marginBottom: '5px' }}>ANÁLISE COM IA</div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: 'white' }}>Faça sua pergunta</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '3px' }}>Claude AI · SharePoint · 4.004 registros</div>
+          </div>
+
+          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+
+            <div>
+              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Mês</label>
+              <select value={month} onChange={e => setMonth(e.target.value)}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
+                {meses.map((m, i) => <option key={i} value={m}>{m}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Ano</label>
+              <select value={year} onChange={e => setYear(e.target.value)}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
+                {anos.map((a, i) => <option key={i} value={a.toString()}>{a}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Público</label>
+              <select value={audience} onChange={e => setAudience(e.target.value)}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: audience ? '#1e2d5e' : '#bbb', fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
+                <option value="">Selecione o público</option>
+                <option value="Diretoria">Diretoria</option>
+                <option value="Conselho Administrativo">Conselho Administrativo</option>
+                <option value="Gestores">Gestores</option>
+                <option value="Equipe Financeira">Equipe Financeira</option>
+                <option value="Cliente">Cliente</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Sua pergunta</label>
+              <textarea value={question} onChange={e => setQuestion(e.target.value)}
+                placeholder="Ex: Qual o saldo atual? Quais os maiores pagamentos do mês?"
+                rows={3}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', resize: 'none', lineHeight: '1.5', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <button onClick={handleAnalyze} disabled={loading || !question.trim()}
+              style={{ background: loading ? '#9ca3af' : '#1e2d5e', borderRadius: '6px', padding: '11px 16px', textAlign: 'center', cursor: loading ? 'not-allowed' : 'pointer', border: 'none', transition: 'background 0.2s' }}
+              onMouseEnter={e => !loading && (e.target.style.background = '#162248')}
+              onMouseLeave={e => !loading && (e.target.style.background = '#1e2d5e')}
+            >
+              <span style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>
+                {loading ? 'Analisando...' : 'Analisar'}
+              </span>
+            </button>
+
+            {history.length > 0 && (
+              <div style={{ borderTop: '0.5px solid #e8e8e3', paddingTop: '10px' }}>
+                <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '1px', marginBottom: '8px' }}>HISTÓRICO</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {history.map((h, i) => (
+                    <div key={i} onClick={() => setResult(h.result)}
+                      style={{ fontSize: '11px', color: '#1e2d5e', padding: '7px 10px', background: '#f5f5f0', borderRadius: '5px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>{h.question}</span>
+                      <span style={{ color: '#bbb', fontSize: '10px', flexShrink: 0 }}>{h.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* TABELA */}
+      <div style={{ padding: '20px 48px 0', boxSizing: 'border-box' }}>
+        <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '0.5px solid #f0efe9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '3px' }}>TABELA DE APOIO</div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e2d5e' }}>Detalhamento semanal</div>
+            </div>
+            <span style={{ fontSize: '11px', color: '#aaa' }}>valores · variações · alertas</span>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
+            <thead>
+              <tr style={{ background: '#f8f7f3', borderBottom: '0.5px solid #e8e8e3' }}>
+                {['Período', 'Recebimentos', 'Var.%', 'Pagamentos', 'Var.%', 'Gap', 'Alerta'].map((h, i) => (
+                  <th key={i} style={{ padding: '9px 12px', color: '#888', fontWeight: '500', textAlign: i === 0 ? 'left' : i === 6 ? 'center' : 'right', paddingLeft: i === 0 ? '20px' : '12px' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tableData.map((row, i) => (
+                <tr key={i} style={{ borderBottom: '0.5px solid #f0efe9', background: i % 2 === 1 ? '#f8f7f3' : 'white' }}>
+                  <td style={{ padding: '9px 20px', color: '#1e2d5e', fontWeight: '500' }}>{row.periodo}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: '#333' }}>{fmtMoeda(row.recebimentos)}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: varColor(row.varRec) }}>{row.varRec}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: '#333' }}>{fmtMoeda(row.pagamentos)}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: varColor(row.varPag) }}>{row.varPag}</td>
+                  <td style={{ textAlign: 'right', padding: '9px 12px', color: '#A32D2D' }}>{fmtMoeda(row.gap)}</td>
+                  <td style={{ textAlign: 'center', padding: '9px 12px' }}>
+                    <span style={{ ...badgeStyle(row.alerta), borderRadius: '4px', padding: '2px 8px', fontSize: '10px', fontWeight: '500' }}>{row.alerta}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: '#1e2d5e' }}>
+                <td style={{ padding: '9px 20px', color: 'white', fontWeight: '600' }}>Total</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: 'white', fontWeight: '500' }}>R$ 5.480.000,00</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: '#9FE1CB', fontSize: '11px' }}>+8,0%</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: 'white', fontWeight: '500' }}>R$ 7.740.000,00</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: '#f09595', fontSize: '11px' }}>+12,0%</td>
+                <td style={{ textAlign: 'right', padding: '9px 12px', color: '#f09595', fontWeight: '500' }}>-R$ 2.260.000,00</td>
+                <td style={{ textAlign: 'center', padding: '9px 12px' }}>
+                  <span style={{ background: 'rgba(255,255,255,0.15)', color: 'white', borderRadius: '4px', padding: '2px 7px', fontSize: '10px' }}>Gap</span>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
+
+      {/* FOOTER */}
+      <footer style={{ width: '100%', padding: '16px 48px', marginTop: '20px', borderTop: '1px solid #e8e8e3', backgroundColor: 'white', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '20px', fontSize: '11px', color: '#a0a098' }}>
+          <span>© 2026 C&S Projetos e Mercado</span>
+          <span style={{ color: '#d4d4cc' }}>|</span>
+          <span>ISO 9001:2015 Bureau Veritas</span>
+          <span style={{ color: '#d4d4cc' }}>|</span>
+          <span>Est. 1975</span>
+        </div>
+      </footer>
     </div>
   );
 }
