@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+﻿import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -35,6 +35,80 @@ async function getSharePointData() {
   return values;
 }
 
+function filterFinancialData(allRows, month, year, movementType = 'Recebimentos') {
+  const filtered = [];
+  let totalValue = 0;
+
+  const headerRow = allRows[0] || [];
+  const dateColIdx = headerRow.findIndex(h => h && String(h).toLowerCase().includes('previsão'));
+  const valueColIdx = headerRow.findIndex(h => h && String(h).toLowerCase().includes('valor'));
+  const movementColIdx = headerRow.findIndex(h => h && String(h).toLowerCase().includes('movimento'));
+
+  if (dateColIdx === -1 || valueColIdx === -1 || movementColIdx === -1) {
+    console.warn('⚠️ Headers não encontrados:', { dateColIdx, valueColIdx, movementColIdx });
+    return { filtered: [], total: 0, count: 0 };
+  }
+
+  for (let i = 1; i < allRows.length; i++) {
+    const row = allRows[i];
+    const dateCell = row[dateColIdx];
+    const valueCell = row[valueColIdx];
+    const movementCell = row[movementColIdx];
+
+    let rowDate = null;
+    if (dateCell instanceof Date) {
+      rowDate = dateCell;
+    } else if (typeof dateCell === 'string') {
+      rowDate = new Date(dateCell);
+    } else if (typeof dateCell === 'number') {
+      rowDate = new Date((dateCell - 25569) * 86400 * 1000);
+    }
+
+    const rowValue = typeof valueCell === 'string' ? parseFloat(valueCell.replace(/[^\d.,]/g, '').replace(',', '.')) : parseFloat(valueCell);
+
+    if (!rowDate || isNaN(rowDate.getTime()) || rowDate.getMonth() + 1 !== parseInt(month) || rowDate.getFullYear() !== parseInt(year)) {
+      continue;
+    }
+
+    if (!movementCell || !String(movementCell).toLowerCase().includes(movementType.toLowerCase())) {
+      continue;
+    }
+
+    if (!rowValue || isNaN(rowValue) || rowValue === 0) {
+      continue;
+    }
+
+    filtered.push({ date: rowDate.toISOString().split('T')[0], value: Math.abs(rowValue), movement: movementCell });
+    totalValue += Math.abs(rowValue);
+  }
+
+  return { filtered, total: totalValue, count: filtered.length };
+}
+
+function calculateKPIs(allRows, month, year) {
+  const recebimentos = filterFinancialData(allRows, month, year, 'Recebimentos');
+  const pagamentos = filterFinancialData(allRows, month, year, 'Pagamentos');
+
+  const totalRec = recebimentos.total;
+  const totalPag = pagamentos.total;
+  const saldo = totalRec - totalPag;
+
+  const formatCurrency = (value) => {
+    const isNegative = value < 0;
+    const absValue = Math.abs(value);
+    const formatted = absValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return isNegative ? `-R$ ${formatted}` : `R$ ${formatted}`;
+  };
+
+  return {
+    saldo: formatCurrency(saldo),
+    recebimentos: formatCurrency(totalRec),
+    pagamentos: formatCurrency(totalPag),
+    gap: formatCurrency(saldo),
+    debug: { recebimentos_count: recebimentos.count, pagamentos_count: pagamentos.count, totalRec_raw: totalRec, totalPag_raw: totalPag }
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -42,89 +116,19 @@ export default async function handler(req, res) {
 
   const { question, month, year, audience, company } = req.body;
 
-  // Validação: perguntas vagas precisam de mais contexto
-  const vagaKeywords = ['algum', 'algo', 'qualquer', 'geral', 'overview', 'resumo geral'];
-  const isPerguntaVaga = vagaKeywords.some(k => question.toLowerCase().includes(k));
-
-  if (isPerguntaVaga || question.length < 10) {
-    return res.status(200).json({
-      needsClarification: true,
-      analysis: 'Para fornecer uma análise precisa, preciso de mais detalhes. Você quer saber sobre: recebimentos, pagamentos, saldo, projeções, ou algum item específico?',
-      kpis: {
-        saldo: '-R$ 2.254.612,00',
-        recebimentos: 'R$ 5.483.534,00',
-        pagamentos: 'R$ 7.738.146,00',
-        gap: '-R$ 2.254.612,00'
-      }
-    });
-  }
-
   try {
-    let data;
-    try {
-      data = await getSharePointData();
-    } catch (spError) {
-      console.warn('SharePoint unavailable, using mock data:', spError.message);
-      data = [
-        ['Semana', 'Recebimentos', 'Pagamentos'],
-        ['Semana 1', 1200000, 1800000],
-        ['Semana 2', 1450000, 2100000],
-        ['Semana 3', 980000, 1650000],
-        ['Semana 4', 1853534, 2188146]
-      ];
-    }
+    const data = await getSharePointData();
+    console.log(`✅ SharePoint conectado: ${data.length} linhas retornadas`);
 
-    const headers = data[0];
+    const kpis = calculateKPIs(data, month, year);
+    console.log(`📊 KPIs calculados:`, kpis);
+
+    const headers = data[0] || [];
     const rows = data.slice(1, 200);
-    const sample = rows.slice(0, 50).map(r =>
-      headers.map((h, i) => `${h}: ${r[i]}`).join(' | ')
-    ).join('\n');
+    const sample = rows.slice(0, 50).map(r => headers.map((h, i) => `${h}: ${r[i]}`).join(' | ')).join('\n');
 
-    const systemPrompt = `Você é o CFO Finanças, assistente de análise financeira estratégica da ${company}.
-Responda SEMPRE em português brasileiro.
-Adapte o nível técnico e o tom para o público: ${audience}.
-Seja direto, objetivo e estratégico.
-
-REGRAS OBRIGATÓRIAS:
-1. Retorne APENAS JSON VÁLIDO (sem markdown, sem \`\`\`json, sem preamble)
-2. O campo "kpis" DEVE conter VALORES ABSOLUTOS formatados (ex: "R$ 5.483.534,00")
-3. NUNCA retorne apenas percentuais nos KPIs
-4. Calcule os valores a partir dos dados fornecidos
-5. Use formatação brasileira: R$ X.XXX.XXX,XX`;
-
-    const userPrompt = `Dados financeiros (${month} ${year}):
-${sample}
-
-Pergunta: ${question}
-Público: ${audience}
-
-CALCULE os totais dos dados acima e retorne JSON:
-{
-  "analysis": "análise estratégica em 2-4 parágrafos respondendo diretamente a pergunta",
-  "kpis": {
-    "saldo": "[CALCULE: total recebimentos - total pagamentos, formato R$ X.XXX.XXX,XX]",
-    "recebimentos": "[CALCULE: soma total de recebimentos, formato R$ X.XXX.XXX,XX]",
-    "pagamentos": "[CALCULE: soma total de pagamentos, formato R$ X.XXX.XXX,XX]",
-    "gap": "[CALCULE: diferença negativa, formato -R$ X.XXX.XXX,XX]"
-  },
-  "grafico": {
-    "tipo": "bar",
-    "titulo": "Fluxo de caixa semanal - ${month} ${year}",
-    "labels": ["Semana 1", "Semana 2", "Semana 3", "Semana 4"],
-    "datasets": [
-      {"label": "Recebimentos", "data": [valores_reais_dos_dados], "backgroundColor": "#1e2d5e"},
-      {"label": "Pagamentos", "data": [valores_reais_dos_dados], "backgroundColor": "#c9a84c"}
-    ]
-  },
-  "tabela": [
-    {"periodo": "Semana 1", "recebimentos": valor_numero, "varRec": "+X%", "pagamentos": valor_numero, "varPag": "+Y%", "gap": valor_numero, "alerta": "Normal/Atenção/Crítico"}
-  ],
-  "alertas": [
-    {"tipo": "crítico|atenção|info", "msg": "descrição objetiva do alerta"}
-  ]
-}
-
-IMPORTANTE: Use os valores REAIS dos dados fornecidos, não invente números.`;
+    const systemPrompt = `Você é o CFO Finanças da ${company}. Hoje é ${new Date().toLocaleDateString('pt-BR')}. Responda em português. Público: ${audience}. Contexto: ${month}/${year}. REGRAS: JSON válido. KPIs em R$ X.XXX.XXX,XX.`;
+    const userPrompt = `Dados ${month}/${year}:\n${sample}\n\nPergunta: ${question}\n\nRetorne JSON com análise.`;
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -134,72 +138,24 @@ IMPORTANTE: Use os valores REAIS dos dados fornecidos, não invente números.`;
     });
 
     const text = response.content[0].text;
-    console.log('Claude raw response:', text.substring(0, 500));
-
     const clean = text.replace(/```json|```/g, '').trim();
     let parsed;
-    
+
     try {
       parsed = JSON.parse(clean);
-      
-      // Validação robusta: garantir que KPIs têm valores
-      if (!parsed.kpis || !parsed.kpis.saldo || parsed.kpis.saldo.includes('%')) {
-        console.warn('KPIs inválidos, recalculando...');
-        
-        // Calcular valores reais dos dados
-        const totalRec = rows.reduce((sum, r) => sum + (parseFloat(r[1]) || 0), 0);
-        const totalPag = rows.reduce((sum, r) => sum + (parseFloat(r[2]) || 0), 0);
-        const gap = totalRec - totalPag;
-        
-        parsed.kpis = {
-          saldo: gap < 0 ? `-R$ ${Math.abs(gap).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
-                         : `R$ ${gap.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-          recebimentos: `R$ ${totalRec.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-          pagamentos: `R$ ${totalPag.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-          gap: gap < 0 ? `-R$ ${Math.abs(gap).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
-                       : `R$ ${gap.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
-        };
-      }
-      
+      parsed.kpis = kpis;
     } catch (parseErr) {
-      console.error('JSON parse error. Raw text:', clean.substring(0, 300));
-      
-      // Fallback: calcular valores manualmente
-      const totalRec = rows.reduce((sum, r) => sum + (parseFloat(r[1]) || 0), 0);
-      const totalPag = rows.reduce((sum, r) => sum + (parseFloat(r[2]) || 0), 0);
-      const gap = totalRec - totalPag;
-      
-      parsed = {
-        analysis: `Análise para ${month} ${year}: ${clean.substring(0, 500)}`,
-        kpis: {
-          saldo: gap < 0 ? `-R$ ${Math.abs(gap).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
-                         : `R$ ${gap.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-          recebimentos: `R$ ${totalRec.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-          pagamentos: `R$ ${totalPag.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-          gap: gap < 0 ? `-R$ ${Math.abs(gap).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigals: 2})}` 
-                       : `R$ ${gap.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
-        }
-      };
+      parsed = { analysis: `Análise: ${clean.substring(0, 200)}`, kpis: kpis };
     }
 
     return res.status(200).json({
       ...parsed,
-      sharepoint_connected: data.length > 1,
-      total_registros: data.length - 1,
-      tokens_used: (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0)
+      sharepoint_connected: true,
+      filtered_context: { month, year, recebimentos_found: kpis.debug.recebimentos_count, pagamentos_found: kpis.debug.pagamentos_count }
     });
 
   } catch (err) {
-    console.error('Erro analyze:', err.message, err.stack);
-    return res.status(500).json({ 
-      error: err.message,
-      type: err.name,
-      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
-    });
+    console.error('❌ Erro:', err.message);
+    return res.status(500).json({ error: err.message });
   }
 }
-
-
-
-
-
