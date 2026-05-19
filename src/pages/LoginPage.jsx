@@ -55,7 +55,7 @@ export default function LoginPage() {
           <img
             src="/assets/Icon CS 2026 Branco EST1975.png"
             alt="C&S Projetos e Mercado"
-            style={{ height: '52px' }}
+            style={{ height: '64px' }}
           />
           <div style={{
             width: '1px',
