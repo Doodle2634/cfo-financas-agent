@@ -66,7 +66,7 @@ function filterFinancialData(allRows, month, year, movementType = 'Recebimentos'
 
     const rowValue = typeof valueCell === 'string' ? parseFloat(valueCell.replace(/[^\d.,]/g, '').replace(',', '.')) : parseFloat(valueCell);
 
-    if (!rowDate || isNaN(rowDate.getTime()) || rowDate.getMonth() + 1 !== parseInt(month) || rowDate.getFullYear() !== parseInt(year)) {
+    if (!rowDate || isNaN(rowDate.getTime()) || rowDate.getMonth() + 1 !== monthNumber || rowDate.getFullYear() !== parseInt(year)) {
       continue;
     }
 
@@ -159,3 +159,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
