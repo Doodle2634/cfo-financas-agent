@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Chart, registerables } from 'chart.js';
 import API from '../utils/api';
@@ -6,7 +6,7 @@ import { getToken, removeToken } from '../utils/auth';
 
 Chart.register(...registerables);
 
-const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const meses = ['Janeiro', 'Fevereiro', 'MarÃ§o', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 const gerarAnos = () => {
   const agora = new Date().getFullYear();
@@ -107,6 +107,17 @@ export default function DashboardPage() {
     });
   };
 
+  const handleReset = () => {
+    setResult(null);
+    setQuestion('');
+    setKpis({
+      saldo: 'R$ 0,00',
+      recebimentos: 'R$ 0,00',
+      pagamentos: 'R$ 0,00',
+      gap: 'R$ 0,00'
+    });
+  };
+
   const handleAnalyze = async () => {
     if (!question.trim()) return;
     setLoading(true);
@@ -145,15 +156,15 @@ export default function DashboardPage() {
   };
 
   const tableData = result?.tabela || [
-    { periodo: 'Semana 1', recebimentos: 1200000, varRec: '+5,2%', pagamentos: 1800000, varPag: '+11,4%', gap: -600000, alerta: 'Atenção' },
-    { periodo: 'Semana 2', recebimentos: 1450000, varRec: '+8,1%', pagamentos: 2100000, varPag: '+16,7%', gap: -650000, alerta: 'Crítico' },
-    { periodo: 'Semana 3', recebimentos: 980000, varRec: '-3,4%', pagamentos: 1650000, varPag: '-4,2%', gap: -670000, alerta: 'Atenção' },
+    { periodo: 'Semana 1', recebimentos: 1200000, varRec: '+5,2%', pagamentos: 1800000, varPag: '+11,4%', gap: -600000, alerta: 'AtenÃ§Ã£o' },
+    { periodo: 'Semana 2', recebimentos: 1450000, varRec: '+8,1%', pagamentos: 2100000, varPag: '+16,7%', gap: -650000, alerta: 'CrÃ­tico' },
+    { periodo: 'Semana 3', recebimentos: 980000, varRec: '-3,4%', pagamentos: 1650000, varPag: '-4,2%', gap: -670000, alerta: 'AtenÃ§Ã£o' },
     { periodo: 'Semana 4', recebimentos: 1853534, varRec: '+18,9%', pagamentos: 2188146, varPag: '+2,1%', gap: -334612, alerta: 'Normal' },
   ];
 
   const badgeStyle = (alerta) => {
     if (alerta === 'Normal') return { background: '#eaf3de', color: '#3B6D11' };
-    if (alerta === 'Crítico') return { background: '#FCEBEB', color: '#A32D2D' };
+    if (alerta === 'CrÃ­tico') return { background: '#FCEBEB', color: '#A32D2D' };
     return { background: '#FAEEDA', color: '#854F0B' };
   };
 
@@ -170,12 +181,12 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <img src="/assets/Icon CS 2026 Branco EST1975.png" alt="C&S" style={{ height: '48px' }} />
           <div style={{ width: '1px', height: '28px', background: '#dadad2' }}></div>
-          <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e2d5e', letterSpacing: '0.5px' }}>CFO FINANÇAS</span>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e2d5e', letterSpacing: '0.5px' }}>CFO FINANÃ‡AS</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <span style={{ fontSize: '13px', color: '#888' }}>Início</span>
-          <span style={{ fontSize: '13px', color: '#888' }}>Análises</span>
-          <span style={{ fontSize: '13px', color: '#888' }}>Relatórios</span>
+          <span style={{ fontSize: '13px', color: '#888' }}>InÃ­cio</span>
+          <span style={{ fontSize: '13px', color: '#888' }}>AnÃ¡lises</span>
+          <span style={{ fontSize: '13px', color: '#888' }}>RelatÃ³rios</span>
           <div style={{ width: '1px', height: '20px', background: '#dadad2' }}></div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#1e2d5e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -195,14 +206,14 @@ export default function DashboardPage() {
       {/* FAIXA NAVY COM KPIs */}
       <div style={{ background: '#1e2d5e', padding: '22px 48px', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', letterSpacing: '2px', marginBottom: '14px' }}>
-          INDICADORES FINANCEIROS · {month.toUpperCase()} {year}
+          INDICADORES FINANCEIROS Â· {month.toUpperCase()} {year}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
           {[
             { label: 'SALDO ATUAL', valor: kpis.saldo, trend: 'Queda desde Jan', up: false },
-            { label: 'RECEBIMENTOS', valor: kpis.recebimentos, trend: '+8% vs mês ant.', up: true },
-            { label: 'PAGAMENTOS', valor: kpis.pagamentos, trend: '+12% vs mês ant.', up: false },
-            { label: 'GAP LÍQUIDO', valor: kpis.gap, trend: 'Atenção necessária', up: false },
+            { label: 'RECEBIMENTOS', valor: kpis.recebimentos, trend: '+8% vs mÃªs ant.', up: true },
+            { label: 'PAGAMENTOS', valor: kpis.pagamentos, trend: '+12% vs mÃªs ant.', up: false },
+            { label: 'GAP LÃQUIDO', valor: kpis.gap, trend: 'AtenÃ§Ã£o necessÃ¡ria', up: false },
           ].map((k, i) => (
             <div key={i} style={{ background: 'rgba(255,255,255,0.08)', border: '0.5px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '16px 20px' }}>
               <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginBottom: '5px' }}>{k.label}</div>
@@ -213,20 +224,20 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CONTEÚDO PRINCIPAL */}
+      {/* CONTEÃšDO PRINCIPAL */}
       <main style={{ flex: 1, padding: '20px 48px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '1fr 300px', gap: '20px' }}>
 
-        {/* COLUNA ESQUERDA — Gráfico + Resumo */}
+        {/* COLUNA ESQUERDA â€” GrÃ¡fico + Resumo */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
 
-          {/* GRÁFICO */}
+          {/* GRÃFICO */}
           <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '16px 20px 12px', borderBottom: '0.5px solid #f0efe9' }}>
-              <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '4px' }}>VISUALIZAÇÃO DINÂMICA</div>
+              <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '4px' }}>VISUALIZAÃ‡ÃƒO DINÃ‚MICA</div>
               <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e2d5e' }}>
-                {result?.grafico?.titulo || `Fluxo de caixa — ${month} ${year}`}
+                {result?.grafico?.titulo || `Fluxo de caixa â€” ${month} ${year}`}
               </div>
-              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>Atualiza automaticamente com cada análise</div>
+              <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>Atualiza automaticamente com cada anÃ¡lise</div>
               <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#666' }}>
                   <span style={{ width: '9px', height: '9px', borderRadius: '2px', background: '#1e2d5e', display: 'inline-block' }}></span>Recebimentos
@@ -246,7 +257,7 @@ export default function DashboardPage() {
           {/* RESUMO EXECUTIVO */}
           <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '12px' }}>RESUMO EXECUTIVO</div>
-            <div style={{ fontSize: '13px', color: '#1e2d5e', fontWeight: '600', marginBottom: '12px' }}>Análise estratégica do período</div>
+            <div style={{ fontSize: '13px', color: '#1e2d5e', fontWeight: '600', marginBottom: '12px' }}>AnÃ¡lise estratÃ©gica do perÃ­odo</div>
             
             {result?.analysis ? (
               <div style={{ fontSize: '12px', lineHeight: '1.6', color: '#555', marginBottom: '16px' }}>
@@ -254,7 +265,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div style={{ fontSize: '12px', lineHeight: '1.6', color: '#aaa', marginBottom: '16px' }}>
-                Execute uma análise para visualizar o resumo estratégico com desvios, alertas e recomendações.
+                Execute uma anÃ¡lise para visualizar o resumo estratÃ©gico com desvios, alertas e recomendaÃ§Ãµes.
               </div>
             )}
 
@@ -263,7 +274,7 @@ export default function DashboardPage() {
                 <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '1px', marginBottom: '8px' }}>ALERTAS</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {result.alertas.map((a, i) => (
-                    <div key={i} style={{ fontSize: '11px', padding: '6px 10px', background: '#f8f7f3', borderRadius: '5px', borderLeft: `3px solid ${a.tipo === 'crítico' ? '#A32D2D' : a.tipo === 'atenção' ? '#854F0B' : '#3B6D11'}`, color: '#555' }}>
+                    <div key={i} style={{ fontSize: '11px', padding: '6px 10px', background: '#f8f7f3', borderRadius: '5px', borderLeft: `3px solid ${a.tipo === 'crÃ­tico' ? '#A32D2D' : a.tipo === 'atenÃ§Ã£o' ? '#854F0B' : '#3B6D11'}`, color: '#555' }}>
                       {a.msg}
                     </div>
                   ))}
@@ -273,18 +284,18 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* COLUNA DIREITA — PAINEL IA */}
+        {/* COLUNA DIREITA â€” PAINEL IA */}
         <div style={{ background: 'white', borderRadius: '8px', border: '0.5px solid #e0e0d8', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ background: '#1e2d5e', padding: '16px 20px' }}>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', letterSpacing: '2px', marginBottom: '5px' }}>ANÁLISE COM IA</div>
-            <div style={{ fontSize: '15px', fontWeight: '700', color: 'white' }}>Faça sua pergunta</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '3px' }}>Claude AI · SharePoint · 4.004 registros</div>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', letterSpacing: '2px', marginBottom: '5px' }}>ANÃLISE COM IA</div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: 'white' }}>FaÃ§a sua pergunta</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '3px' }}>Claude AI Â· SharePoint Â· 4.004 registros</div>
           </div>
 
           <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
 
             <div>
-              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Mês</label>
+              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>MÃªs</label>
               <select value={month} onChange={e => setMonth(e.target.value)}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
                 {meses.map((m, i) => <option key={i} value={m}>{m}</option>)}
@@ -300,10 +311,10 @@ export default function DashboardPage() {
             </div>
 
             <div>
-              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Público</label>
+              <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>PÃºblico</label>
               <select value={audience} onChange={e => setAudience(e.target.value)}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: audience ? '#1e2d5e' : '#bbb', fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
-                <option value="">Selecione o público</option>
+                <option value="">Selecione o pÃºblico</option>
                 <option value="Diretoria">Diretoria</option>
                 <option value="Conselho Administrativo">Conselho Administrativo</option>
                 <option value="Gestores">Gestores</option>
@@ -315,7 +326,7 @@ export default function DashboardPage() {
             <div>
               <label style={{ fontSize: '11px', color: '#888', marginBottom: '5px', display: 'block' }}>Sua pergunta</label>
               <textarea value={question} onChange={e => setQuestion(e.target.value)}
-                placeholder="Ex: Qual o saldo atual? Quais os maiores pagamentos do mês?"
+                placeholder="Ex: Qual o saldo atual? Quais os maiores pagamentos do mÃªs?"
                 rows={3}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '0.5px solid #dadad2', background: 'white', fontSize: '13px', color: '#1e2d5e', fontFamily: 'inherit', resize: 'none', lineHeight: '1.5', boxSizing: 'border-box' }}
               />
@@ -333,7 +344,7 @@ export default function DashboardPage() {
 
             {history.length > 0 && (
               <div style={{ borderTop: '0.5px solid #e8e8e3', paddingTop: '10px' }}>
-                <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '1px', marginBottom: '8px' }}>HISTÓRICO</div>
+                <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '1px', marginBottom: '8px' }}>HISTÃ“RICO</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   {history.map((h, i) => (
                     <div key={i} onClick={() => setResult(h.result)}
@@ -357,12 +368,12 @@ export default function DashboardPage() {
               <div style={{ fontSize: '10px', color: '#aaa', letterSpacing: '2px', marginBottom: '3px' }}>TABELA DE APOIO</div>
               <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e2d5e' }}>Detalhamento semanal</div>
             </div>
-            <span style={{ fontSize: '11px', color: '#aaa' }}>valores · variações · alertas</span>
+            <span style={{ fontSize: '11px', color: '#aaa' }}>valores Â· variaÃ§Ãµes Â· alertas</span>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ background: '#f8f7f3', borderBottom: '0.5px solid #e8e8e3' }}>
-                {['Período', 'Recebimentos', 'Var.%', 'Pagamentos', 'Var.%', 'Gap', 'Alerta'].map((h, i) => (
+                {['PerÃ­odo', 'Recebimentos', 'Var.%', 'Pagamentos', 'Var.%', 'Gap', 'Alerta'].map((h, i) => (
                   <th key={i} style={{ padding: '9px 12px', color: '#888', fontWeight: '500', textAlign: i === 0 ? 'left' : i === 6 ? 'center' : 'right', paddingLeft: i === 0 ? '20px' : '12px' }}>{h}</th>
                 ))}
               </tr>
@@ -402,7 +413,7 @@ export default function DashboardPage() {
       {/* FOOTER */}
       <footer style={{ width: '100%', padding: '16px 48px', marginTop: '20px', borderTop: '1px solid #e8e8e3', backgroundColor: 'white', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '20px', fontSize: '11px', color: '#a0a098' }}>
-          <span>© 2026 C&S Projetos e Mercado</span>
+          <span>Â© 2026 C&S Projetos e Mercado</span>
           <span style={{ color: '#d4d4cc' }}>|</span>
           <span>ISO 9001:2015 Bureau Veritas</span>
           <span style={{ color: '#d4d4cc' }}>|</span>
@@ -412,3 +423,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
