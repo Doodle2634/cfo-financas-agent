@@ -65,7 +65,7 @@ export default function LoginPage() {
           <span style={{
             fontSize: '15px',
             fontWeight: '600',
-            color: '#c9a84c',
+            color: '#1e2d5e',
             letterSpacing: '2px'
           }}>
             CFO FINANÇAS
@@ -76,7 +76,7 @@ export default function LoginPage() {
       <div style={{
         width: '100%',
         height: '2px',
-        background: 'linear-gradient(90deg, #c9a84c 0%, #e8d9a0 50%, #c9a84c 100%)'
+        background: 'linear-gradient(90deg, #1e2d5e 0%, #e8d9a0 50%, #1e2d5e 100%)'
       }}></div>
 
       <main style={{
